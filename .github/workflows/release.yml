@@ -1,0 +1,29 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install setuptools wheel
+
+      - name: Build package
+        run: python setup.py sdist bdist_wheel
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lib-version
+          path: dist/
