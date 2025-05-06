@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lib-version"
+version = "0.1.0"  # Auto-updated by CI
+description = "Version-aware utility library for REMLA assignment"
+authors = [{name = "Team7", email = "cristiancomend@tudelft.nl"}]
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+package-mode = true
+dynamic = ["version"]
+
+
+# To be added dependencies if any
+

@@ -1,6 +1,9 @@
-import os
+from importlib.metadata import version, PackageNotFoundError
 
-def get_version():
-    path = os.path.join(os.path.dirname(__file__), "..", "version.txt")
-    with open(path) as f:
-        return f.read().strip()
+class VersionUtil:
+    @staticmethod
+    def get_version():
+        try:
+            return version("lib-version")
+        except PackageNotFoundError:
+            return "Package not found"
