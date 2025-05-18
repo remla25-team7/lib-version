@@ -1,0 +1,8 @@
+setup.py
+libversion/__init__.py
+libversion/version.txt
+libversion/version_util.py
+libversion.egg-info/PKG-INFO
+libversion.egg-info/SOURCES.txt
+libversion.egg-info/dependency_links.txt
+libversion.egg-info/top_level.txt
