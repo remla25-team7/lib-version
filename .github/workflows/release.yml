@@ -2,11 +2,9 @@ name: Build, Release & Publish
 
 on:
   push:
-    # only on semantic-version tags
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
-    # only when a PR is opened, reopened, or updated
     types:
       - opened
       - reopened
@@ -25,14 +23,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # need full history to detect branches
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      # ─── Tag-driven packaging & release ─────────────────────────────────────
 
       - name: Stamp version.txt from Git tag
         if: startsWith(github.ref, 'refs/tags/v')
@@ -58,37 +54,21 @@ jobs:
             "dist/libversion-${VERSION#v}-py3-none-any.whl" \
             --clobber
 
-      - name: Bump to next pre-release on your branch
+      - name: Bump to next pre-release on main
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. Compute the next pre-release version
           TAG="${VERSION#v}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
           NEXT_PATCH=$((PATCH + 1))
           PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
 
-          # 2. Detect which remote branch contains this tag commit (excluding HEAD & default)
-          BRANCH=$(git branch -r --contains "$GITHUB_SHA" \
-                   | grep -v HEAD | sed 's|origin/||' \
-                   | grep -v "^${{ github.event.repository.default_branch }}$" \
-                   | head -n1)
-
-          # fallback to default branch if none found
-          if [ -z "$BRANCH" ]; then
-            BRANCH="${{ github.event.repository.default_branch }}"
-          fi
-
-          # 3. Checkout that branch cleanly
-          git fetch origin "$BRANCH"
-          git checkout "$BRANCH"
-          git reset --hard "origin/$BRANCH"
-
-          # 4. Update version.txt and push
+          git fetch origin main
+          git checkout main
           echo "$PREVER" > version.txt
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add version.txt
           git commit -m "Bump version to $PREVER for next pre-release [skip ci]" || echo "No changes to commit"
-          git push origin "$BRANCH"
+          git push origin main
