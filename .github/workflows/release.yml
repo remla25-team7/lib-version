@@ -2,14 +2,13 @@ name: Build, Release & Publish
 
 on:
   push:
-    branches:
-      - main
-      - '**'
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
-    branches:
-      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
 
 permissions:
   contents: write
@@ -33,9 +32,7 @@ jobs:
 
       - name: Stamp version.txt from Git tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          # Strip leading "v": e.g. v1.2.3 → 1.2.3
-          echo "${VERSION#v}" > version.txt
+        run: echo "${VERSION#v}" > version.txt
 
       - name: Install packaging tools
         run: pip install --upgrade pip setuptools wheel
@@ -43,12 +40,11 @@ jobs:
       - name: Build package
         run: python setup.py sdist bdist_wheel
 
-      - name: Publish distributions to GitHub Release
+      - name: Publish to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create the Release if it doesn't exist, then upload the artifacts
           gh release view "$VERSION" >/dev/null 2>&1 || \
             gh release create "$VERSION" --title "$VERSION" --notes "Automated build for $VERSION"
           gh release upload "$VERSION" \
@@ -56,22 +52,22 @@ jobs:
             "dist/libversion-${VERSION#v}-py3-none-any.whl" \
             --clobber
 
-      - name: Bump to next pre-release on main
+      - name: Bump to next pre-release on your branch
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_BRANCH: ${{ github.head_ref || github.event.repository.default_branch }}
         run: |
           TAG="${VERSION#v}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
           NEXT_PATCH=$((PATCH + 1))
           PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
 
-          # Switch to main, update version.txt, and push
-          git fetch origin main
-          git checkout main
+          git fetch origin "$TARGET_BRANCH"
+          git checkout "$TARGET_BRANCH"
           echo "$PREVER" > version.txt
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add version.txt
           git commit -m "Bump version to $PREVER for next pre-release [skip ci]" || echo "No changes to commit"
-          git push origin main
+          git push origin "$TARGET_BRANCH"
