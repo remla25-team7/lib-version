@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   release:
@@ -35,44 +34,42 @@ jobs:
       - name: Stamp version.txt from Git tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          # Strip leading "v" from ref name → e.g. v1.2.3 → 1.2.3
+          # Strip leading "v": e.g. v1.2.3 → 1.2.3
           echo "${VERSION#v}" > version.txt
 
       - name: Install packaging tools
-        run: pip install --upgrade pip setuptools wheel twine
+        run: pip install --upgrade pip setuptools wheel
 
       - name: Build package
         run: python setup.py sdist bdist_wheel
 
-      - name: Publish to GitHub Packages
+      - name: Publish distributions to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          twine upload \
-            --repository-url https://upload.pypi.pkg.github.com/${{ github.repository_owner }}/ \
-            dist/*
+          # Create the Release if it doesn't exist, then upload the artifacts
+          gh release view "$VERSION" >/dev/null 2>&1 || \
+            gh release create "$VERSION" --title "$VERSION" --notes "Automated build for $VERSION"
+          gh release upload "$VERSION" \
+            "dist/libversion-${VERSION#v}.tar.gz" \
+            "dist/libversion-${VERSION#v}-py3-none-any.whl" \
+            --clobber
 
       - name: Bump to next pre-release on main
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Extract semantic parts
           TAG="${VERSION#v}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
-
-          # Next patch with "-pre"
           NEXT_PATCH=$((PATCH + 1))
           PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
 
-          # Update main branch version.txt
+          # Switch to main, update version.txt, and push
           git fetch origin main
           git checkout main
           echo "$PREVER" > version.txt
-
-          # Commit & push bump (skip CI)
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add version.txt
