@@ -2,13 +2,14 @@ name: Build, Release & Publish
 
 on:
   push:
+    branches:
+      - main
+      - '**'
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
-    types:
-      - opened
-      - reopened
-      - synchronize
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -32,21 +33,22 @@ jobs:
 
       - name: Stamp version.txt from Git tag
         if: startsWith(github.ref, 'refs/tags/v')
-        run: echo "${VERSION#v}" > version.txt
+        run: |
+          # Strip leading "v": e.g. v1.2.3 → 1.2.3
+          echo "${VERSION#v}" > version.txt
 
       - name: Install packaging tools
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: pip install --upgrade pip setuptools wheel gh
+        run: pip install --upgrade pip setuptools wheel
 
       - name: Build package
-        if: startsWith(github.ref, 'refs/tags/v')
         run: python setup.py sdist bdist_wheel
 
-      - name: Publish to GitHub Release
+      - name: Publish distributions to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Create the Release if it doesn't exist, then upload the artifacts
           gh release view "$VERSION" >/dev/null 2>&1 || \
             gh release create "$VERSION" --title "$VERSION" --notes "Automated build for $VERSION"
           gh release upload "$VERSION" \
@@ -64,6 +66,7 @@ jobs:
           NEXT_PATCH=$((PATCH + 1))
           PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
 
+          # Switch to main, update version.txt, and push
           git fetch origin main
           git checkout main
           echo "$PREVER" > version.txt
