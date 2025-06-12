@@ -1,12 +1,12 @@
 name: Build, Release & Publish
 
 on:
-  # Run only on semantic-version tag pushes…
   push:
+    # only on semantic-version tags
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
-  # …and on pull requests (opened/reopened/synchronize) against any branch
   pull_request:
+    # only when a PR is opened, reopened, or updated
     types:
       - opened
       - reopened
@@ -25,21 +25,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0    # need full history to detect branches
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
+      # ─── Tag-driven packaging & release ─────────────────────────────────────
+
       - name: Stamp version.txt from Git tag
         if: startsWith(github.ref, 'refs/tags/v')
         run: echo "${VERSION#v}" > version.txt
 
       - name: Install packaging tools
-        run: pip install --upgrade pip setuptools wheel
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: pip install --upgrade pip setuptools wheel gh
 
       - name: Build package
+        if: startsWith(github.ref, 'refs/tags/v')
         run: python setup.py sdist bdist_wheel
 
       - name: Publish to GitHub Release
@@ -58,26 +62,33 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # For PRs, github.head_ref is the branch name; for tag-pushes, fall back to default branch
-          TARGET_BRANCH: ${{ github.head_ref || github.event.repository.default_branch }}
         run: |
-          # Compute next pre-release version
+          # 1. Compute the next pre-release version
           TAG="${VERSION#v}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
           NEXT_PATCH=$((PATCH + 1))
           PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
 
-          # Fetch & clean target branch
-          git fetch origin "$TARGET_BRANCH"
-          git checkout "$TARGET_BRANCH"
-          git reset --hard "origin/$TARGET_BRANCH"
+          # 2. Detect which remote branch contains this tag commit (excluding HEAD & default)
+          BRANCH=$(git branch -r --contains "$GITHUB_SHA" \
+                   | grep -v HEAD | sed 's|origin/||' \
+                   | grep -v "^${{ github.event.repository.default_branch }}$" \
+                   | head -n1)
 
-          # Write the new pre-release version
+          # fallback to default branch if none found
+          if [ -z "$BRANCH" ]; then
+            BRANCH="${{ github.event.repository.default_branch }}"
+          fi
+
+          # 3. Checkout that branch cleanly
+          git fetch origin "$BRANCH"
+          git checkout "$BRANCH"
+          git reset --hard "origin/$BRANCH"
+
+          # 4. Update version.txt and push
           echo "$PREVER" > version.txt
-
-          # Commit & push the bump (skip CI)
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add version.txt
           git commit -m "Bump version to $PREVER for next pre-release [skip ci]" || echo "No changes to commit"
-          git push origin "$TARGET_BRANCH"
+          git push origin "$BRANCH"
