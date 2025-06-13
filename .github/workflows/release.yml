@@ -65,8 +65,8 @@ jobs:
 
           # Switch to main (discard local changes), update version.txt, and push
           git fetch origin main
-          git checkout main
           git reset --hard origin/main
+          git checkout main
 
           echo "$PREVER" > version.txt
           git config user.name "github-actions"
