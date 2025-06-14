@@ -18,7 +18,7 @@ class VersionUtil:
         if version_file:
             self._version_file = version_file
         else:
-            # determine the default path: one level up from this file
+            # determine the default path: one level up from this filee
             self._version_file = os.path.abspath(
                 os.path.join(os.path.dirname(__file__), os.pardir, 'version.txt')
             )
