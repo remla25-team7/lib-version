@@ -2,9 +2,12 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
+      - cristian-release-prerelease
     tags:
-      - 'v*.*.*'        # Triggers on version tags like v1.2.3
-  workflow_dispatch:     # Allow manual trigger
+      - 'v*.*.*'        
+  workflow_dispatch:     
 
 jobs:
   release:
@@ -68,7 +71,7 @@ jobs:
           RUN_ID=${{ github.run_number }}
           PRE_VERSION="${{ steps.get_version.outputs.version }}-pre-${DATE}.${RUN_ID}"
           echo "pre_version=$PRE_VERSION" >> $GITHUB_OUTPUT
-          echo "$PRE_VERSION" > version.txt  # temporary override
+          echo "$PRE_VERSION" > version.txt  # override for packaging
 
       - name: Build pre-release
         run: |
