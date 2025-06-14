@@ -4,7 +4,7 @@ with open("version.txt") as f:
     version = f.read().strip()
 
 setup(
-    name="lib-version",
+    name="libversion",
     version=version,
     packages=find_packages(),
     include_package_data=True,
