@@ -57,13 +57,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          TAG="${VERSION#v}"
+          TAG="${VERSION#v}"                                # e.g. "1.2.3"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$TAG"
-          NEXT_PATCH=$((PATCH + 1))
-          PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre"
-
-          # Switch to main (discard local changes), update version.txt, and push
+          NEXT_PATCH=$((PATCH + 1))                         # bump patch: 1.2.4
+          PREVER="$MAJOR.$MINOR.$NEXT_PATCH-pre.$GITHUB_RUN_NUMBER"
+          
+          # Switch to main, update version.txt, and push
           git fetch origin main
           git reset --hard origin/main
           git checkout main
@@ -74,5 +75,3 @@ jobs:
           git add version.txt
           git commit -m "Bump version to $PREVER for next pre-release" || echo "No changes to commit"
           git push origin main
-
-
